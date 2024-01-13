@@ -1,59 +1,110 @@
 package utils
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"os"
-	"os/signal"
-	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 var pool *sql.DB
 
-func SetupDatabase(dsn string) {
-
+func connectToDatabase(dsn string) {
 	if len(dsn) == 0 {
 		log.Fatal("Datasource is not set")
-		panic("Datasource is not set")
 	}
 
 	var err error
 	pool, err = sql.Open("pgx", dsn)
 	if err != nil {
 		log.Fatal("unable to use data source name", err)
-		panic("Unable to load database")
 	}
-	defer pool.Close()
 
-	pool.SetConnMaxLifetime(0)
+	pool.SetConnMaxLifetime(-1)
 	pool.SetMaxIdleConns(3)
 	pool.SetMaxOpenConns(3)
 
-	ctx, stop := context.WithCancel(context.Background())
-
-	defer stop()
-
-	appSignal := make(chan os.Signal, 3)
-	signal.Notify(appSignal, os.Interrupt)
-
-	go func() {
-		<-appSignal
-		stop()
-	}()
-
-	Ping(ctx)
-
+	if err = pool.Ping(); err != nil {
+		log.Fatalf("Unable to connect to database: %v", err)
+	}
 }
 
-func Ping(ctx context.Context) {
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
-	defer cancel()
+func SetupDatabase(dsn string) {
+	connectToDatabase(dsn)
+	initBootstrapTables()
+	runMigrations()
+}
 
-	if err := pool.PingContext(ctx); err != nil {
-		log.Fatalf("unable to connect to database: %v", err)
-		panic("unable to connect to database")
+func initBootstrapTables() {
+	_, err := pool.Exec(
+		`CREATE TABLE IF NOT EXISTS MIGRATIONS(
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			name TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT NOW()
+		)`)
+
+	if err != nil {
+		log.Fatalf("Failed to create migration table %v", err.Error())
+	}
+}
+
+func migrationExists(needle string, haystack []string) bool {
+	for i := 0; i < len(haystack); i++ {
+		if haystack[i] == needle {
+			return true
+		}
+	}
+
+	return false
+}
+
+func runMigrations() {
+
+	rows, err := pool.Query("SELECT name FROM migrations")
+
+	if err != nil {
+		log.Fatalf("Unable to query migrations %v", err.Error())
+	}
+	defer rows.Close()
+
+	migrationNames := make([]string, 0)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			log.Fatal(err)
+		}
+		migrationNames = append(migrationNames, name)
+	}
+
+	files, err := os.ReadDir("./migrations")
+
+	if err != nil {
+		log.Fatalf("Unable to load migrations %v", err.Error())
+	}
+
+	for i := 0; i < len(files); i++ {
+		file := files[i]
+
+		b, err := os.ReadFile("./migrations/" + file.Name())
+
+		if migrationExists(file.Name(), migrationNames) {
+			continue
+		}
+
+		if err != nil {
+			log.Fatalf("Unable to read migration %v", err.Error())
+		}
+
+		_, err = pool.Exec(string(b[:]))
+
+		if err != nil {
+			log.Fatalf("Failed to create table %v", err.Error())
+		}
+
+		if _, err = pool.Exec("INSERT INTO MIGRATIONS (name) VALUES ('" + file.Name() + "')"); err != nil {
+			log.Fatalf("Failed to update migrations table after creating migration %v %v", file.Name(), err.Error())
+		}
+
 	}
 }
