@@ -8,7 +8,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-var pool *sql.DB
+var DB *sql.DB
 
 func connectToDatabase(dsn string) {
 	if len(dsn) == 0 {
@@ -16,16 +16,16 @@ func connectToDatabase(dsn string) {
 	}
 
 	var err error
-	pool, err = sql.Open("pgx", dsn)
+	DB, err = sql.Open("pgx", dsn)
 	if err != nil {
 		log.Fatal("unable to use data source name", err)
 	}
 
-	pool.SetConnMaxLifetime(-1)
-	pool.SetMaxIdleConns(3)
-	pool.SetMaxOpenConns(3)
+	DB.SetConnMaxLifetime(-1)
+	DB.SetMaxIdleConns(3)
+	DB.SetMaxOpenConns(3)
 
-	if err = pool.Ping(); err != nil {
+	if err = DB.Ping(); err != nil {
 		log.Fatalf("Unable to connect to database: %v", err)
 	}
 }
@@ -37,7 +37,7 @@ func SetupDatabase(dsn string) {
 }
 
 func initBootstrapTables() {
-	_, err := pool.Exec(
+	_, err := DB.Exec(
 		`CREATE TABLE IF NOT EXISTS MIGRATIONS(
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			name TEXT NOT NULL,
@@ -61,7 +61,7 @@ func migrationExists(needle string, haystack []string) bool {
 
 func runMigrations() {
 
-	rows, err := pool.Query("SELECT name FROM migrations")
+	rows, err := DB.Query("SELECT name FROM migrations")
 
 	if err != nil {
 		log.Fatalf("Unable to query migrations %v", err.Error())
@@ -96,13 +96,13 @@ func runMigrations() {
 			log.Fatalf("Unable to read migration %v", err.Error())
 		}
 
-		_, err = pool.Exec(string(b[:]))
+		_, err = DB.Exec(string(b[:]))
 
 		if err != nil {
 			log.Fatalf("Failed to create table %v", err.Error())
 		}
 
-		if _, err = pool.Exec("INSERT INTO MIGRATIONS (name) VALUES ('" + file.Name() + "')"); err != nil {
+		if _, err = DB.Exec("INSERT INTO MIGRATIONS (name) VALUES ('" + file.Name() + "')"); err != nil {
 			log.Fatalf("Failed to update migrations table after creating migration %v %v", file.Name(), err.Error())
 		}
 
