@@ -5,6 +5,7 @@ go 1.21.0
 require (
 	github.com/gookit/validate v1.5.1
 	github.com/jackc/pgx/v5 v5.5.1
+	github.com/rs/cors v1.10.1
 )
 
 require (
