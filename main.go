@@ -15,7 +15,7 @@ func main() {
 	env, err := utils.LoadEnv()
 
 	if err != nil {
-		panic("env missing")
+		panic("env missing la")
 	}
 
 	utils.SetupDatabase(env.DSN)
