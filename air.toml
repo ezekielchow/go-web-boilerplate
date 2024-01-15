@@ -7,7 +7,7 @@ tmp_dir = "tmp"
 
 [build]
 # Just plain old shell command. You could use `make` as well.
-cmd = "go build -o /app/main ./main.go"
+cmd = "swag init && go build -o /app/main ."
 
 # Customize binary.
 # This is how you start to run your application. Since my application will works like CLI, so to run it, like to make a CLI call.
@@ -17,10 +17,11 @@ log = "air_errors.log"
 # Watch these filename extensions.
 include_ext = ["go", "yaml", "graphqls"]
 # Ignore these filename extensions or directories.
-exclude_dir = ["tmp"]
+exclude_dir = ["tmp", "docs"]
 exclude_file = ["graph/model/models_gen.go", "graph/generated.go","graph/schema.resolvers.go"]
 # It's not necessary to trigger build each time file changes if it's too frequent.
 delay = 1000 # ms
+poll = true
 
 [log]
 # Show log time
