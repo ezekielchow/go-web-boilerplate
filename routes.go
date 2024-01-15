@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"go-boilerplate/controllers"
 	"net/http"
 	"strings"
 	"text/template"
+
+	"github.com/gin-gonic/gin"
 )
 
 type apiHandler struct{}
@@ -19,8 +22,13 @@ func (apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "came in here")
 }
 
-func ApiHandler(router *http.ServeMux) {
-	router.Handle("/api/", apiHandler{})
+func ApiHandler(r *gin.Engine) {
+	api := r.Group("api")
+	v1 := api.Group("v1")
+
+	userController := new(controllers.UserController)
+	user := v1.Group("/users")
+	user.GET("/", userController.List)
 }
 
 func WebHandler(router *http.ServeMux) {

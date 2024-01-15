@@ -6,8 +6,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"github.com/gookit/validate"
-	"github.com/rs/cors"
 )
 
 func main() {
@@ -19,13 +20,12 @@ func main() {
 	}
 
 	utils.SetupDatabase(env.DSN)
+	utils.AddValidators()
 
-	mux := http.NewServeMux()
-	handler := cors.Default().Handler(mux)
+	r := gin.Default()
+	r.Use(cors.Default())
 
-	StaticHandler(mux)
-	ApiHandler(mux)
-	WebHandler(mux)
+	ApiHandler(r)
 
 	// Form errors
 	validate.Config(func(opt *validate.GlobalOption) {
@@ -34,6 +34,6 @@ func main() {
 		opt.ValidatePrivateFields = true
 	})
 
-	log.Fatal(http.ListenAndServe(":"+env.APP_PORT, handler))
+	log.Fatal(http.ListenAndServe(":"+env.APP_PORT, r))
 	fmt.Println("Serving at " + env.APP_PORT)
 }
